@@ -21,7 +21,7 @@ def crawl():
     keyword = data.get("keyword")
     
     query = f"site:blog.naver.com {keyword}"
-    results = list(search(query, num_results=3))
+    results = list(search(query, num_results=5))
     
     for url in results:
         content = get_blog_text(url)
