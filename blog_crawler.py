@@ -1,7 +1,6 @@
-
 from flask import Flask, request, jsonify
-from bs4 import BeautifulSoup
 import requests
+from bs4 import BeautifulSoup
 from googlesearch import search
 import os
 
@@ -9,42 +8,50 @@ app = Flask(__name__)
 
 def get_blog_text(url):
     try:
-        response = requests.get(url, timeout=10)
-        if response.status_code != 200:
+        res = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
+        soup = BeautifulSoup(res.text, "html.parser")
+
+        # 본문 영역으로 추정되는 요소 우선 탐색
+        content = (
+            soup.find("article") or
+            soup.find("div", {"id": "main-content"}) or
+            soup.find("div", {"class": "entry-content"}) or
+            soup.find("div", {"class": "post-body"}) or
+            soup.find("div", {"class": "article"})
+        )
+
+        if content:
+            paragraphs = content.find_all("p")
+            text = "\n".join(p.get_text(strip=True) for p in paragraphs)
+            return text[:3000] if len(text) > 0 else None  # 내용이 있으면 최대 3000자까지 반환
+        else:
             return None
-        soup = BeautifulSoup(response.text, 'html.parser')
-        # 다양한 태그에서 텍스트 추출 (p, div, article, section)
-        content_tags = soup.select("p, div, article, section")
-        content = ' '.join([tag.get_text(strip=True) for tag in content_tags])
-        return content if len(content) > 300 else None
     except Exception as e:
+        print("Error fetching text:", e)
         return None
 
-@app.route('/crawl', methods=['POST'])
+
+@app.route('/crawl', methods=["POST"])
 def crawl():
-    data = request.get_json()
-    keyword = data.get("keyword", "")
-    if not keyword:
-        return jsonify({"status": "fail", "message": "No keyword provided."})
+    data = request.json
+    keyword = data.get("keyword")
 
-    # 네이버 블로그 제외한 검색 쿼리
-    query = f"{keyword} -site:blog.naver.com -site:m.blog.naver.com"
+    query = f"{keyword}"
+    results = list(search(query, num_results=3))
 
-    try:
-        results = list(search(query, num_results=5))
-        for url in results:
-            content = get_blog_text(url)
-            if content:
-                return jsonify({
-                    "status": "success",
-                    "title": keyword,
-                    "content": content,
-                    "source_url": url
-                })
-        return jsonify({"status": "fail", "message": "No valid content found."})
-    except Exception as e:
-        return jsonify({"status": "fail", "message": str(e)})
+    for url in results:
+        content = get_blog_text(url)
+        if content and len(content) > 500:
+            return jsonify({
+                "status": "success",
+                "title": keyword,
+                "content": content,
+                "source_url": url
+            })
 
-if __name__ == '__main__':
+    return jsonify({"status": "fail", "message": "No valid content found."})
+
+
+if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
