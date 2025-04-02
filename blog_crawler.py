@@ -23,7 +23,7 @@ def get_blog_text(url):
         if content:
             paragraphs = content.find_all("p")
             text = "\n".join(p.get_text(strip=True) for p in paragraphs)
-            return text[:3000] if len(text) > 0 else None  # 내용이 있으면 최대 3000자까지 반환
+            return text[:10000] if len(text) > 0 else None  # 내용이 있으면 최대 10000자까지 반환
         else:
             return None
     except Exception as e:
