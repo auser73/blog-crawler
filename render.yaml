@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: blog-crawler
+    env: python
+    plan: free
+    buildCommand: ""
+    startCommand: "python blog_crawler.py"
